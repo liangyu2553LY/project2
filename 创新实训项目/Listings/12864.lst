@@ -1,0 +1,192 @@
+C51 COMPILER V9.56.0.0   12864                                                             06/02/2022 22:38:31 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE 12864
+OBJECT MODULE PLACED IN .\Objects\12864.obj
+COMPILER INVOKED BY: D:\keil\C51\BIN\C51.EXE 12864.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\12864.
+                    -lst) TABS(2) OBJECT(.\Objects\12864.obj)
+
+line level    source
+
+   1          #include <12864.h>
+   2          #include <delay.h>
+   3          uchar code shuzi[]="0123456789ABCDEF";
+   4          char  code shuzi_c[]="0123456789ABCDEF";//uchar xdata dat_12864[64][16];
+   5          /************ 延时函数  *****************/
+   6          void delay_uint(uint z)
+   7          {
+   8   1         while(z--);
+   9   1      }
+  10          /************ 写命令函数  *****************/
+  11          void write_com(uchar com)
+  12          {
+  13   1       P0=com;
+  14   1         //P0=change_dat(com);
+  15   1         rw=0;
+  16   1         rs=0;
+  17   1         delay_uint(25);
+  18   1         e=1;
+  19   1         delay_uint(50);
+  20   1         e=0;
+  21   1      }
+  22          /************ 写数据函数  *****************/
+  23          void write_dat(uchar dat)
+  24          {
+  25   1      P0=dat;
+  26   1         //P0=change_dat(dat);;
+  27   1         rw=0;
+  28   1         rs=1;
+  29   1         delay_uint(25);
+  30   1         e=1;
+  31   1         delay_uint(50);
+  32   1         e=0;
+  33   1      }
+  34          
+  35          /**********************************************************
+  36          *函数名: addr_12864
+  37          *功能:写地址
+  38          *说明:写汉字时要写个地址
+  39          *输入:无
+  40          *返回:无
+  41          **********************************************************/
+  42          void addr_12864(uchar hang,uchar lie)   //地址转换
+  43          {
+  44   1        uchar address;
+  45   1        switch(hang)
+  46   1        {
+  47   2          case 1: address=0x80 + lie ;
+  48   2              break;
+  49   2          case 2: address=0x90 + lie ;
+  50   2              break;
+  51   2          case 3: address=0x88 + lie ;
+  52   2              break;
+  53   2          case 4: address=0x98 + lie ;
+  54   2              break;
+C51 COMPILER V9.56.0.0   12864                                                             06/02/2022 22:38:31 PAGE 2   
+
+  55   2          default : 
+  56   2              break;
+  57   2        } 
+  58   1        write_com(address);
+  59   1      }
+  60          
+  61          /**********************************************************
+  62          *函数名: write_shu16
+  63          *功能:在12864上显示16进制数据
+  64          *说明:
+  65          *输入:无
+  66          *返回:无
+  67          **********************************************************/
+  68          void write_shu16(uchar hang,uchar lie,uchar dat)
+  69          {
+  70   1        addr_12864(hang,lie);   //地址转换  
+  71   1        write_dat(shuzi[dat/16]); 
+  72   1        write_dat(shuzi[dat%16]); 
+  73   1      }
+  74          
+  75          /**********************************************************
+  76          *函数名: write_shu10
+  77          *功能:在12864上显示10进制数据
+  78          *说明:
+  79          *输入:无
+  80          *返回:无
+  81          **********************************************************/
+  82          void write_shu10(uchar hang,uchar lie,uint dat)
+  83          {
+  84   1        addr_12864(hang,lie);   //地址转换  
+  85   1        write_dat(shuzi[dat%10]); 
+  86   1        //write_dat(shuzi[dat%10]); 
+  87   1      }
+  88          
+  89          
+  90          /**********************************************************
+  91          *函数名: write_string
+  92          *功能:在12864上显示字符数据
+  93          *说明:
+  94          *输入:无
+  95          *返回:无
+  96          **********************************************************/
+  97          
+  98          void write_string(uchar hang,uchar lie,uchar *p)
+  99          {
+ 100   1        addr_12864(hang,lie);   //地址转换
+ 101   1        while(*p != '\0')
+ 102   1        {
+ 103   2          write_dat(*p);
+ 104   2          p++;
+ 105   2          delay_uint(50);
+ 106   2        }
+ 107   1      }
+ 108          
+ 109          
+ 110          /*****************控制光标函数********************/
+ 111          void write_guanbiao(uchar hang,uchar lie,uchar date)
+ 112          {   
+ 113   1        addr_12864(hang,lie);  
+ 114   1        if(date == 1)
+ 115   1          write_com(0x0f);     //显示光标并且闪烁 
+ 116   1        else 
+C51 COMPILER V9.56.0.0   12864                                                             06/02/2022 22:38:31 PAGE 3   
+
+ 117   1          write_com(0xc0);   //关闭光标
+ 118   1      }  
+ 119          
+ 120          
+ 121          /************12864液晶初始化函数*****************/
+ 122          void init_12864()
+ 123          {
+ 124   1         write_com(0x30);
+ 125   1         write_com(0x0c);
+ 126   1         write_com(0x01);
+ 127   1      }
+ 128          
+ 129          
+ 130          /*------------------------清除12864------------------------------*/
+ 131          void clear_12864()
+ 132          {
+ 133   1        write_string(1,0,"                "); //1行 
+ 134   1        write_string(2,0,"                "); //2行 
+ 135   1        write_string(3,0,"                "); //3行 
+ 136   1        write_string(4,0,"                "); //4行 
+ 137   1      }
+ 138          
+ 139          
+ 140          /************初始化显示*****************/
+ 141          void init_12864_dis()
+ 142          {
+ 143   1        write_string(1,0,"--智能药箱系统--");
+ 144   1        write_string(2,0,"时间：");
+ 145   1        write_string(3,0,"列表：        ℃");
+ 146   1        write_string(4,0,"                ");
+ 147   1        write_guanbiao(1,1,0);
+ 148   1      }
+ 149          
+ 150          void init_12864_dis0()
+ 151          {
+ 152   1        write_string(1,0,"      Welcome   ");
+ 153   1        delay_ms(100);
+ 154   1        write_string(2,0," Please Waitting.  ");
+ 155   1        delay_ms(1000);
+ 156   1        write_string(2,0," Please Waitting..");
+ 157   1        delay_ms(800);
+ 158   1        write_string(2,0," Please Waitting...");
+ 159   1        delay_ms(600);
+ 160   1        write_string(2,0," Please Waitting....");
+ 161   1        delay_ms(500);
+ 162   1        write_string(2,0," Please Waitting.....");
+ 163   1        write_com(0x01);//清屏
+ 164   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    431    ----
+   CONSTANT SIZE    =    211    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

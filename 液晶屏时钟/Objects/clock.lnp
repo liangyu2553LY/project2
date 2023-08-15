@@ -1,0 +1,4 @@
+".\Objects\LCD12864.obj",
+".\Objects\main.obj" 
+TO ".\Objects\clock" 
+PRINT(".\Listings\clock.m51")

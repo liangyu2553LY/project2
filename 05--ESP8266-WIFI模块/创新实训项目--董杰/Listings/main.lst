@@ -1,0 +1,365 @@
+C51 COMPILER V9.56.0.0   MAIN                                                              06/02/2022 20:01:03 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: D:\keil\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main.ls
+                    -t) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include <REGX51.H>
+   2          #include <stdio.h>
+   3          #include <stdlib.h>
+   4          #include <UART.H>
+   5          #include <wifi_control.h>
+   6          #include <key.h>
+   7          #include <delay.h>
+   8          #include <12864.h>
+   9          #include <smg.h>
+  10          #include <ds18b20.h>
+  11          //*****变量区********//
+  12          int  temperature;    //温度变量
+  13          unsigned char timer[]={55,59,23};//时钟
+  14          unsigned char timer2[]={0,58,22};//设置吃药时间阿莫西林
+  15          unsigned char timer3[]={0,58,22};//板蓝根吃药时间
+  16          //定义LED1管脚
+  17          sbit LED1=P2^0;
+  18          sbit Buzzer=P1^5;//蜂鸣器端口
+  19          //定义WIFI控制命令
+  20          #define LED1_ON_CMD     '1'
+  21          #define LED1_OFF_CMD    '2'
+  22          #define amoxilin        '3'
+  23          #define banlangen       '4'
+  24          u8 UART_RX_BUF[20];//最大接收数据缓存
+  25          //温度保存*******
+  26          u16 j=0;
+  27          u8 temp_buf[5];//温度缓存
+  28          int temp_value;
+  29          u8 wifi_send_buf[7];
+  30          
+  31          sbit led=P2^0;//led闪烁提醒吃药
+  32          unsigned char keynum=0;
+  33          unsigned char i=0;//发送计次
+  34          unsigned char control=0;//是否进入设置时间和吃药量模式
+  35          unsigned char chiyaoliang1=0;//吃药量1//板蓝根
+  36          unsigned char chiyaoliang2=0;//吃药量2//阿莫新林
+  37          bit timeflag=0;//如果时间到了且按时吃药则置1
+  38          unsigned char chiyao_count=0;
+  39          //****************//
+  40          void key_control()
+  41          {
+  42   1        switch(keynum)
+  43   1        {
+  44   2          case 5:
+  45   2            keynum=0;
+  46   2            chiyao_count++;
+  47   2            if(chiyao_count==chiyaoliang1)
+  48   2            {
+  49   3              chiyao_count=0;
+  50   3              ESP8266_SendData("已完成板蓝根药量");
+  51   3            }
+  52   2            break;
+  53   2          case 6:
+  54   2          keynum=0;
+C51 COMPILER V9.56.0.0   MAIN                                                              06/02/2022 20:01:03 PAGE 2   
+
+  55   2          chiyao_count++;
+  56   2          if(chiyao_count==chiyaoliang2)
+  57   2          {
+  58   3            chiyao_count=0;
+  59   3            ESP8266_SendData("已完成阿莫西林药量");
+  60   3          }
+  61   2          break;
+  62   2          case 2:
+  63   2            {
+  64   3              ES=0;
+  65   3              keynum=0;
+  66   3              led=1;
+  67   3              ES=1;
+  68   3              ESP8266_SendData("正在吃药"); //通过串口发巳数据到APP
+  69   3              timeflag=1;
+  70   3            }
+  71   2            break;
+  72   2          case 3:
+  73   2            break;
+  74   2          case 4:
+  75   2          {
+  76   3      //      addr_12864(4,5);
+  77   3      //      write_dat(shuzi[tim[0]]);
+  78   3      //      write_dat(shuzi[tim[1]]);
+  79   3      //      write_dat(shuzi[tim[2]]);
+  80   3      //      write_dat(shuzi[tim[3]]);
+  81   3      //      write_dat(shuzi[tim[4]]);
+  82   3          }
+  83   2            break;
+  84   2          case 13:        //调时++
+  85   2          {
+  86   3            if(control==1)
+  87   3            {
+  88   4              timer2[2]++;
+  89   4              if(timer2[2]>23){timer2[2]=0;}
+  90   4              addr_12864(4,5);
+  91   4              write_dat(shuzi[timer2[2]/10]);
+  92   4              write_dat(shuzi[timer2[2]%10]);
+  93   4              keynum=0;
+  94   4            }
+  95   3            else if(control==2)
+  96   3            {
+  97   4              timer3[2]++;
+  98   4              if(timer3[2]>23){timer3[2]=0;}
+  99   4              addr_12864(4,5);
+ 100   4              write_dat(shuzi[timer3[2]/10]);
+ 101   4              write_dat(shuzi[timer3[2]%10]);
+ 102   4              keynum=0;
+ 103   4            }
+ 104   3          }     
+ 105   2          break;
+ 106   2          case 14:        //调分++
+ 107   2          {
+ 108   3            if(control==1)//阿莫西林调分
+ 109   3            {
+ 110   4              timer2[1]++;
+ 111   4              if(timer2[1]>59){timer2[1]=0;}
+ 112   4              addr_12864(4,7);
+ 113   4              write_dat(shuzi[timer2[1]/10]);
+ 114   4              write_dat(shuzi[timer2[1]%10]);
+ 115   4              keynum=0;
+ 116   4            } 
+C51 COMPILER V9.56.0.0   MAIN                                                              06/02/2022 20:01:03 PAGE 3   
+
+ 117   3            else if(control==2)//板蓝根调分
+ 118   3            {
+ 119   4              timer3[1]++;
+ 120   4              if(timer3[1]>59){timer3[1]=0;}
+ 121   4              addr_12864(4,7);
+ 122   4              write_dat(shuzi[timer3[1]/10]);
+ 123   4              write_dat(shuzi[timer3[1]%10]);
+ 124   4              keynum=0;
+ 125   4            } 
+ 126   3          }     
+ 127   2          break;
+ 128   2          case 15:        //设置吃药量
+ 129   2          {
+ 130   3            if(control==1)
+ 131   3            {
+ 132   4              chiyaoliang1++;
+ 133   4              if(chiyaoliang1>9){chiyaoliang1=0;}
+ 134   4              addr_12864(3,3);
+ 135   4              write_dat(shuzi[chiyaoliang1]);
+ 136   4              keynum=0;
+ 137   4            }
+ 138   3            else if(control==2)
+ 139   3            {
+ 140   4              chiyaoliang2++;
+ 141   4              if(chiyaoliang2>9){chiyaoliang2=0;}
+ 142   4              addr_12864(3,3);
+ 143   4              write_dat(shuzi[chiyaoliang2]);
+ 144   4              keynum=0;
+ 145   4            }
+ 146   3          }
+ 147   2            break;
+ 148   2          case 16:        //设置确认，清除显示
+ 149   2          {
+ 150   3            keynum=0;
+ 151   3            if(control==1)
+ 152   3            {
+ 153   4              write_string(3,3,"  ");
+ 154   4              write_string(4,0,"        ");
+ 155   4              write_string(4,5,"        ");
+ 156   4            }
+ 157   3            else if(control==2)
+ 158   3            {
+ 159   4              write_string(3,3,"  ");
+ 160   4              write_string(4,0,"        ");
+ 161   4              write_string(4,5,"        ");
+ 162   4            }
+ 163   3          }
+ 164   2            break;
+ 165   2          default:
+ 166   2            break;
+ 167   2        }
+ 168   1      }
+ 169          
+ 170          /******************时间芯片显示函数**********************/     
+ 171          void ds1302_dis()
+ 172          {
+ 173   1            addr_12864(2,3);    //地址转换
+ 174   1            write_dat(' ');   
+ 175   1            write_dat(shuzi[timer[2]/10]);  
+ 176   1            write_dat(shuzi[timer[2]%10]);  
+ 177   1            write_dat(':'); 
+ 178   1            write_dat(shuzi[timer[1]/10]);  
+C51 COMPILER V9.56.0.0   MAIN                                                              06/02/2022 20:01:03 PAGE 4   
+
+ 179   1            write_dat(shuzi[timer[1]%10]);  
+ 180   1            write_dat(':'); 
+ 181   1            write_dat(shuzi[timer[0]/10]);  
+ 182   1            write_dat(shuzi[timer[0]%10]);
+ 183   1           ///******温度*******//
+ 184   1            addr_12864(3,4);
+ 185   1            write_dat(' '); 
+ 186   1            write_dat(shuzi[temp_value/100]); 
+ 187   1            write_dat(shuzi[temp_value%100/10]);  
+ 188   1            write_dat('.'); 
+ 189   1            write_dat(shuzi[temp_value%10]);    
+ 190   1      }
+ 191          
+ 192          void Timer0Init(void)
+ 193          {
+ 194   1        TMOD &= 0xF0;   //???????
+ 195   1        TMOD |= 0x01;   //???????
+ 196   1        TL0 = 0x18;   //??????
+ 197   1        TH0 = 0xFC;   //??????
+ 198   1        TF0 = 0;    //??TF0??
+ 199   1        TR0 = 1;    //???0????
+ 200   1        ET0=1;
+ 201   1        EA=1;
+ 202   1        PT0=0;
+ 203   1      }
+ 204          void Timer0_Routine() interrupt 1
+ 205          {
+ 206   1        static unsigned int T0Count;
+ 207   1        TL0 = 0x18;   //设置定时初值
+ 208   1        TH0 = 0xFC;   //??????
+ 209   1        T0Count++;
+ 210   1        if(T0Count>=1000) //定时器分频  1s
+ 211   1        {
+ 212   2          T0Count=0;
+ 213   2          timer[0]++;     //1??,Sec??
+ 214   2          if(timer[0]>=60)
+ 215   2          {
+ 216   3            timer[0]=0;   //60??,Sec?0,Min??
+ 217   3            timer[1]++;
+ 218   3            if(timer[1]>=60)
+ 219   3            {
+ 220   4              timer[1]=0; //60???,Min?0,Hour??
+ 221   4              timer[2]++;
+ 222   4              if(timer[2]>=24)
+ 223   4              {
+ 224   5                timer[2]=0; //24???,Hour?0
+ 225   5              }
+ 226   4            }
+ 227   3          }
+ 228   2        }
+ 229   1      }
+ 230          
+ 231          
+ 232          //******主程序*******//
+ 233          void main()
+ 234          {
+ 235   1        UART_Init();
+ 236   1        init_12864();
+ 237   1        Timer0Init();
+ 238   1        ESP8266_ModeInit();
+ 239   1        //ES=1;//允许串口中断
+ 240   1        init_12864_dis();
+C51 COMPILER V9.56.0.0   MAIN                                                              06/02/2022 20:01:03 PAGE 5   
+
+ 241   1        while(1)
+ 242   1        {
+ 243   2          keynum=MatrixKey();
+ 244   2          if((timer2[1]==timer[1]&&timer2[2]==timer[2]&&timeflag==0)||(timer3[1]==timer[1]&&timer3[2]==timer[2]&&t
+             -imeflag==0))//如果设定时间到了，提醒吃药
+ 245   2          {
+ 246   3             ESP8266_SendData("吃药时间到了");
+ 247   3             Buzzer=~Buzzer;
+ 248   3             {
+ 249   4              ES=0;
+ 250   4              led=~led;
+ 251   4              ES=1;
+ 252   4              ESP8266_SendData("请按时吃药");
+ 253   4             }
+ 254   3          }
+ 255   2          key_control();
+ 256   2          j++;
+ 257   2          if(j%25==0)//间隔一段时间读取温度值，间隔时间要大于温度传感器转换温度时间
+ 258   2          {
+ 259   3            ES=0;
+ 260   3            temp_value=ds18b20_read_temperture()*10;//保留温度值小数后一位
+ 261   3            ds1302_dis();
+ 262   3            ES=1;
+ 263   3          }
+ 264   2          temp_buf[1]=gsmg_code[temp_value/1000];//百位
+ 265   2          temp_buf[2]=gsmg_code[temp_value%1000/100];//十位
+ 266   2          temp_buf[3]=gsmg_code[temp_value%1000%100/10]|0x80;//个位+小数点
+ 267   2          temp_buf[4]=gsmg_code[temp_value%1000%100%10];//小数点后一位
+ 268   2          smg_display(temp_buf,4);
+ 269   2          
+ 270   2          if(j%200==0)//间隔一段时间将读取的温度发送到APP
+ 271   2          {
+ 272   3            wifi_send_buf[1]=temp_value/1000+0x30;
+ 273   3            wifi_send_buf[2]=temp_value%1000/100+0x30;
+ 274   3            wifi_send_buf[3]=temp_value%1000%100/10+0x30;
+ 275   3            wifi_send_buf[4]='.';
+ 276   3            wifi_send_buf[5]=temp_value%1000%100%10+0x30;
+ 277   3            wifi_send_buf[6]='\0';
+ 278   3            ESP8266_SendData(wifi_send_buf);//通过串口发送温度数据到APP
+ 279   3          }
+ 280   2      
+ 281   2      /////手机app按键控制继电器   串口中断   取某一药品   app取多少次药量 时间报警 
+ 282   2          
+ 283   2          
+ 284   2      /////lcd屏幕录入药品名称  药品使用时间  药品用量  
+ 285   2      
+ 286   2        }
+ 287   1      }
+ 288          //串口中断服务函数
+ 289          //接收手机APP发送的信号后控制板载资源
+ 290          void UART_Routine() interrupt 4
+ 291          {
+ 292   1        u8 i;//数组遍历
+ 293   1        if(RI)
+ 294   1        {
+ 295   2          RI=0;
+ 296   2          UART_RX_BUF[i]=SBUF;//读取接收到的数据
+ 297   2          if(UART_RX_BUF[0]=='+')i++;
+ 298   2          else i=0;
+ 299   2          if(i==10)
+ 300   2          {
+ 301   3            i=0;
+C51 COMPILER V9.56.0.0   MAIN                                                              06/02/2022 20:01:03 PAGE 6   
+
+ 302   3            //WIFI控制
+ 303   3            if(UART_RX_BUF[9]==LED1_ON_CMD)
+ 304   3            { 
+ 305   4              LED1=0;
+ 306   4            }
+ 307   3            else if(UART_RX_BUF[9]==LED1_OFF_CMD)
+ 308   3            { 
+ 309   4              LED1=1;
+ 310   4              write_string(3,3,"  ");
+ 311   4              write_string(4,0,"        ");
+ 312   4              write_string(4,5,"        ");
+ 313   4            } 
+ 314   3            else if(UART_RX_BUF[9]==amoxilin)//阿莫西林
+ 315   3            { 
+ 316   4              write_string(3,3,"0");
+ 317   4              write_string(4,0,"阿莫西林");
+ 318   4              write_string(4,5,"00: 00");
+ 319   4              control=1;
+ 320   4            }
+ 321   3            else if(UART_RX_BUF[9]==banlangen)//板蓝根
+ 322   3            { 
+ 323   4              write_string(3,3,"0");
+ 324   4              write_string(4,0,"板蓝根");
+ 325   4              write_string(4,5,"00: 00");
+ 326   4              control=2;
+ 327   4            }
+ 328   3          } 
+ 329   2        } 
+ 330   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1357    ----
+   CONSTANT SIZE    =    105    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     55       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

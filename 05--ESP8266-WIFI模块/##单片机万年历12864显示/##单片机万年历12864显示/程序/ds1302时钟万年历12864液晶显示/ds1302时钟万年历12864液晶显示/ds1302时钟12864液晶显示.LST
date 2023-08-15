@@ -1,0 +1,605 @@
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE DS1302____12864________
+OBJECT MODULE PLACED IN ds1302时钟12864液晶显示.OBJ
+COMPILER INVOKED BY: D:\keil\C51\BIN\C51.EXE ds1302时钟12864液晶显示.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(
+                    -2)
+
+line level    source
+
+   1          #include <reg52.h>           //调用单片机头文件
+   2          #define uchar unsigned char  //无符号字符型 宏定义  变量范围0~255
+   3          #define uint  unsigned int   //无符号整型 宏定义  变量范围0~65535
+   4          #include "nongli.h"
+   5          
+   6          uchar code shuzi[]="0123456789ABCDEF";
+   7          char  code shuzi_c[]="0123456789ABCDEF";//uchar xdata dat_12864[64][16];
+   8          
+   9          sbit rs=P2^6;  //寄存器选择信号 H:数据寄存器    L:指令寄存器
+  10          sbit rw=P2^5;  //寄存器选择信号 H:数据寄存器    L:指令寄存器
+  11          sbit e =P2^7;  //片选信号   下降沿触发
+  12          
+  13          sbit beep = P3^7; //蜂鸣器IO口
+  14          
+  15          sbit dq   = P3^1;   //18b20 IO口的定义
+  16          uint temperature ;    //温度变量
+  17          
+  18          
+  19          bit flag_200ms = 1;
+  20          uchar menu_1;
+  21          uchar flag_clock_en;  //闹钟标志位
+  22          uchar open1;  //闹钟开标志位
+  23          uchar flag_c_en;
+  24          bit flag_100ms;
+  25          
+  26          uchar n_nian,n_yue,n_ri;
+  27          
+  28          /********************************************************************
+  29          * 名称 : delay_1ms()
+  30          * 功能 : 延时1ms函数
+  31          * 输入 : q
+  32          * 输出 : 无
+  33          ***********************************************************************/
+  34          void delay_1ms(uint q)
+  35          {
+  36   1        uint i,j;
+  37   1        for(i=0;i<q;i++)
+  38   1          for(j=0;j<115;j++);
+  39   1      }
+  40          
+  41          
+  42          #include "ds1302.h"
+  43          
+  44          
+  45          /*********************定时器0、定时器1初始化******************/
+  46          void time0_init()   
+  47          {          
+  48   1        EA  = 1;      //开总中断
+  49   1        TMOD = 0X11;    //定时器0、定时器1工作方式1
+  50   1        ET0 = 1;      //开定时器0中断 
+  51   1        TR0 = 1;      //允许定时器0定时
+  52   1      }
+  53                         
+  54                       
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 2   
+
+  55          /************ 延时函数  *****************/
+  56          void delay_uint(uint z)
+  57          {
+  58   1         while(z--);
+  59   1      }
+  60          
+  61          /***************交换函数 高位变低位 低位变高位*****************/
+  62          uchar change_dat(uchar dat)
+  63          {
+  64   1        uchar i,value;
+  65   1        for(i=0;i<8;i++)
+  66   1        { 
+  67   2          value <<= 1; 
+  68   2          if((dat & 0x01) == 0x01)
+  69   2            value |= 0x01;
+  70   2          dat >>= 1;  
+  71   2        }
+  72   1        return value;
+  73   1      }
+  74          
+  75          /************ 写命令函数  *****************/
+  76          void write_com(uchar com)
+  77          {
+  78   1       P0=com;
+  79   1         //P0=change_dat(com);
+  80   1         rw=0;
+  81   1         rs=0;
+  82   1         delay_uint(25);
+  83   1         e=1;
+  84   1         delay_uint(50);
+  85   1         e=0;
+  86   1      }
+  87          /************ 写数据函数  *****************/
+  88          void write_dat(uchar dat)
+  89          {
+  90   1      P0=dat;
+  91   1         //P0=change_dat(dat);;
+  92   1         rw=0;
+  93   1         rs=1;
+  94   1         delay_uint(25);
+  95   1         e=1;
+  96   1         delay_uint(50);
+  97   1         e=0;
+  98   1      }
+  99          
+ 100          /**********************************************************
+ 101          *函数名: addr_12864
+ 102          *功能:写地址
+ 103          *说明:写汉字时要写个地址
+ 104          *输入:无
+ 105          *返回:无
+ 106          **********************************************************/
+ 107          void addr_12864(uchar hang,uchar lie)   //地址转换
+ 108          {
+ 109   1        uchar address;
+ 110   1        switch(hang)
+ 111   1        {
+ 112   2          case 1: address=0x80 + lie ;
+ 113   2              break;
+ 114   2          case 2: address=0x90 + lie ;
+ 115   2              break;
+ 116   2          case 3: address=0x88 + lie ;
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 3   
+
+ 117   2              break;
+ 118   2          case 4: address=0x98 + lie ;
+ 119   2              break;
+ 120   2          default : 
+ 121   2              break;
+ 122   2        } 
+ 123   1        write_com(address);
+ 124   1      }
+ 125          
+ 126          /**********************************************************
+ 127          *函数名: write_shu16
+ 128          *功能:在12864上显示16进制数据
+ 129          *说明:
+ 130          *输入:无
+ 131          *返回:无
+ 132          **********************************************************/
+ 133          void write_shu16(uchar hang,uchar lie,uchar dat)
+ 134          {
+ 135   1        addr_12864(hang,lie);   //地址转换  
+ 136   1        write_dat(shuzi[dat/16]); 
+ 137   1        write_dat(shuzi[dat%16]); 
+ 138   1      }
+ 139          
+ 140          /**********************************************************
+ 141          *函数名: write_string
+ 142          *功能:在12864上显示字符数据
+ 143          *说明:
+ 144          *输入:无
+ 145          *返回:无
+ 146          **********************************************************/
+ 147          
+ 148          void write_string(uchar hang,uchar lie,uchar *p)
+ 149          {
+ 150   1        addr_12864(hang,lie);   //地址转换
+ 151   1        while(*p != '\0')
+ 152   1        {
+ 153   2          write_dat(*p);
+ 154   2          p++;
+ 155   2          delay_uint(50);
+ 156   2        }
+ 157   1      }
+ 158          
+ 159          
+ 160          /*****************控制光标函数********************/
+ 161          void write_guanbiao(uchar hang,uchar lie,uchar date)
+ 162          {   
+ 163   1        addr_12864(hang,lie);  
+ 164   1        if(date == 1)
+ 165   1          write_com(0x0f);     //显示光标并且闪烁 
+ 166   1        else 
+ 167   1          write_com(0xc0);   //关闭光标
+ 168   1      }  
+ 169          
+ 170          
+ 171          /************12864液晶初始化函数*****************/
+ 172          void init_12864()
+ 173          {
+ 174   1         write_com(0x30);
+ 175   1         write_com(0x0c);
+ 176   1         write_com(0x01);
+ 177   1      }
+ 178          
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 4   
+
+ 179          /*------------------------清除12864------------------------------*/
+ 180          void clear_12864()
+ 181          {
+ 182   1        write_string(1,0,"                "); //1行 
+ 183   1        write_string(2,0,"                "); //2行 
+ 184   1        write_string(3,0,"                "); //3行 
+ 185   1        write_string(4,0,"                "); //4行 
+ 186   1      }
+ 187          
+ 188          
+ 189          /************初始化显示*****************/
+ 190          void init_12864_dis()
+ 191          {
+ 192   1        write_string(1,0,"  多功能电子日历");
+ 193   1        write_string(2,0,"阳历2000年00月00");
+ 194   1        write_string(3,0,"农历00-00 星期  ");
+ 195   1        write_string(4,0," 00:00:00 00.0℃");
+ 196   1        write_guanbiao(1,1,0);
+ 197   1      }
+ 198          
+ 199          /************初始化设置显示*****************/
+ 200          void init_12864_set1()
+ 201          {
+ 202   1        clear_12864();
+ 203   1        write_string(1,0,"2013年00月00日  ");
+ 204   1        write_string(2,0,"  00时00分00秒  ");
+ 205   1        write_string(3,0,"设置  星期01    ");
+ 206   1        write_string(4,0,"闹钟开  00时00分");
+ 207   1        if(open1 == 1)
+ 208   1          write_string(4,2,"开");
+ 209   1        else 
+ 210   1          write_string(4,2,"关");
+ 211   1        write_guanbiao(1,1,1);
+ 212   1      }
+ 213          
+ 214          /***********************18b20初始化函数*****************************/
+ 215          void init_18b20()
+ 216          {
+ 217   1        bit q;
+ 218   1        dq = 1;       //把总线拿高
+ 219   1        delay_uint(1);      //15us
+ 220   1        dq = 0;       //给复位脉冲
+ 221   1        delay_uint(80);   //750us
+ 222   1        dq = 1;       //把总线拿高 等待
+ 223   1        delay_uint(10);   //110us
+ 224   1        q = dq;       //读取18b20初始化信号
+ 225   1        delay_uint(20);   //200us
+ 226   1        dq = 1;       //把总线拿高 释放总线
+ 227   1      }
+ 228          
+ 229          /*************写18b20内的数据***************/
+ 230          void write_18b20(uchar dat)
+ 231          {
+ 232   1        uchar i;
+ 233   1        for(i=0;i<8;i++)
+ 234   1        {          //写数据是低位开始
+ 235   2          dq = 0;      //把总线拿低写时间隙开始 
+ 236   2          dq = dat & 0x01; //向18b20总线写数据了
+ 237   2          delay_uint(5);   // 60us
+ 238   2          dq = 1;      //释放总线
+ 239   2          dat >>= 1;
+ 240   2        } 
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 5   
+
+ 241   1      }
+ 242          
+ 243          /*************读取18b20内的数据***************/
+ 244          uchar read_18b20()
+ 245          {
+ 246   1        uchar i,value;
+ 247   1        for(i=0;i<8;i++)
+ 248   1        {
+ 249   2          dq = 0;      //把总线拿低读时间隙开始 
+ 250   2          value >>= 1;   //读数据是低位开始
+ 251   2          dq = 1;      //释放总线
+ 252   2          if(dq == 1)    //开始读写数据 
+ 253   2            value |= 0x80;
+ 254   2          delay_uint(5);   //60us 读一个时间隙最少要保持60us的时间
+ 255   2        }
+ 256   1        return value;    //返回数据
+ 257   1      }
+ 258          
+ 259          /*************读取温度的值 读出来的是小数***************/
+ 260          uint read_temp()
+ 261          {
+ 262   1        uint value;
+ 263   1        uchar low;         //在读取温度的时候如果中断的太频繁了，就应该把中断给关了，否则会影响到18b20的时序
+ 264   1        init_18b20();      //初始化18b20
+ 265   1        write_18b20(0xcc);     //跳过64位ROM
+ 266   1        write_18b20(0x44);     //启动一次温度转换命令
+ 267   1        delay_uint(50);      //500us
+ 268   1      
+ 269   1        init_18b20();      //初始化18b20
+ 270   1        
+ 271   1        write_18b20(0xcc);     //跳过64位ROM
+ 272   1        write_18b20(0xbe);     //发出读取暂存器命令
+ 273   1        
+ 274   1        EA = 0;
+ 275   1        low = read_18b20();    //读温度低字节
+ 276   1        value = read_18b20();  //读温度高字节
+ 277   1        EA = 1;
+ 278   1        value <<= 8;       //把温度的高位左移8位
+ 279   1        value |= low;      //把读出的温度低位放到value的低八位中
+ 280   1        value *= 0.625;        //转换到温度值 小数
+ 281   1        return value;      //返回读出的温度 带小数
+ 282   1      }
+ 283          
+ 284          
+ 285          /******************时间芯片显示函数**********************/     
+ 286          void ds1302_dis()
+ 287          {
+ 288   1        uchar miao_1;
+ 289   1        if(menu_1 == 0)
+ 290   1        {
+ 291   2          read_time();
+ 292   2          if(miao_1 != miao)
+ 293   2          {
+ 294   3            miao_1 = miao;
+ 295   3            Conversion(0,nian,yue,ri);  //农历转换             
+ 296   3            n_nian = year_moon ;
+ 297   3            n_yue  = month_moon ;
+ 298   3            n_ri   = day_moon ;
+ 299   3            write_shu16(2,3,nian);     //显示年
+ 300   3            write_shu16(2,5,yue);    //显示月
+ 301   3            write_shu16(2,7,ri);     //显示日
+ 302   3            write_shu16(3,7,week);     //显示星期
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 6   
+
+ 303   3            
+ 304   3            addr_12864(3,2);    //地址转换  
+ 305   3            write_dat(shuzi[n_yue/16]); 
+ 306   3            write_dat(shuzi[n_yue%16]); 
+ 307   3            write_dat('-'); 
+ 308   3            write_dat(shuzi[n_ri/16]);  
+ 309   3            write_dat(shuzi[n_ri%16]);  
+ 310   3                
+ 311   3            addr_12864(4,0);    //地址转换
+ 312   3            write_dat(' ');   
+ 313   3            write_dat(shuzi[shi/16]); 
+ 314   3            write_dat(shuzi[shi%16]); 
+ 315   3            write_dat(':'); 
+ 316   3            write_dat(shuzi[fen/16]); 
+ 317   3            write_dat(shuzi[fen%16]); 
+ 318   3            write_dat(':'); 
+ 319   3            write_dat(shuzi[miao/16]);  
+ 320   3            write_dat(shuzi[miao%16]);  
+ 321   3      
+ 322   3            write_dat(' '); 
+ 323   3            write_dat(shuzi[temperature/100%10]); 
+ 324   3            write_dat(shuzi[temperature/10%10]);  
+ 325   3            write_dat('.'); 
+ 326   3            write_dat(shuzi[temperature%10]); 
+ 327   3      
+ 328   3      
+ 329   3          }
+ 330   2        }
+ 331   1      }
+ 332          
+ 333          
+ 334          
+ 335          /********************独立按键程序*****************/
+ 336          uchar key_can;   //按键值
+ 337          
+ 338          void key()   //独立按键程序
+ 339          {
+ 340   1        static uchar key_new;
+ 341   1        key_can = 20;                   //按键值还原
+ 342   1        P3 |= 0x78;                     //对应的按键IO口输出为1
+ 343   1        if((P3 & 0x78) != 0x78)   //按键按下
+ 344   1        {
+ 345   2          delay_1ms(1);       //按键消抖动
+ 346   2          if(((P3 & 0x78) != 0x78) && (key_new == 1))
+ 347   2          {           //确认是按键按下
+ 348   3            key_new = 0;
+ 349   3            switch(P3 & 0x78)
+ 350   3            {
+ 351   4              case 0x70:  key_can = 4;  break;   //得到按键值
+ 352   4              case 0x68:  key_can = 3;  break;   //得到按键值
+ 353   4              case 0x58:  key_can = 2;  break;   //得到按键值
+ 354   4              case 0x38:  key_can = 1;  break;   //得到按键值
+ 355   4            }
+ 356   3      //      write_sfm2(1,0,key_can);         //显示按键值
+ 357   3          }     
+ 358   2        }
+ 359   1        else 
+ 360   1          key_new = 1;  
+ 361   1      }
+ 362          
+ 363          /**********************设置函数************************/
+ 364          void key_with()
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 7   
+
+ 365          {
+ 366   1        if(key_can == 4)   //退出键
+ 367   1        {
+ 368   2          init_12864();
+ 369   2          init_12864_dis();
+ 370   2          flag_200ms = 1;
+ 371   2          menu_1 = 0;
+ 372   2        }
+ 373   1        if(key_can == 1)  //设置键
+ 374   1        {
+ 375   2          menu_1 ++;
+ 376   2          flag_200ms = 1;
+ 377   2          if(menu_1 == 1)
+ 378   2            init_12864_set1();
+ 379   2          if(menu_1 > 10)
+ 380   2            menu_1 = 1;
+ 381   2        }
+ 382   1        if(menu_1 != 0)
+ 383   1        {
+ 384   2          if(menu_1 == 1)     //设置年
+ 385   2          {
+ 386   3            if(key_can == 2)  //加
+ 387   3              set_ds1302time(1,&nian,0x99);   
+ 388   3            if(key_can == 3)  //减    
+ 389   3              set_ds1302time(0,&nian,0x99); 
+ 390   3          }
+ 391   2          if(menu_1 == 2)     //设置月
+ 392   2          {
+ 393   3            if(key_can == 2)  //加
+ 394   3              set_ds1302time(1,&yue,0x13);    
+ 395   3            if(key_can == 3)  //减    
+ 396   3              set_ds1302time(0,&yue,0x13);  
+ 397   3          }
+ 398   2          if(menu_1 == 3)     //设置日
+ 399   2          {
+ 400   3            if(key_can == 2)  //加
+ 401   3              set_ds1302time(1,&ri,0x32);   
+ 402   3            if(key_can == 3)  //减    
+ 403   3              set_ds1302time(0,&ri,0x32); 
+ 404   3          }
+ 405   2          if(menu_1 == 4)     //设置时
+ 406   2          {
+ 407   3            if(key_can == 2)  //加
+ 408   3              set_ds1302time(1,&shi,0x24);    
+ 409   3            if(key_can == 3)  //减    
+ 410   3              set_ds1302time(0,&shi,0x24);  
+ 411   3          }
+ 412   2          if(menu_1 == 5)     //设置分
+ 413   2          {
+ 414   3            if(key_can == 2)  //加
+ 415   3              set_ds1302time(1,&fen,0x60);    
+ 416   3            if(key_can == 3)  //减    
+ 417   3              set_ds1302time(0,&fen,0x60);  
+ 418   3          }
+ 419   2          if(menu_1 == 6)     //设置秒
+ 420   2          {
+ 421   3            if(key_can == 2)  //加
+ 422   3              set_ds1302time(1,&miao,0x60);   
+ 423   3            if(key_can == 3)  //减    
+ 424   3              set_ds1302time(0,&miao,0x60); 
+ 425   3          }
+ 426   2          if(menu_1 == 7)     //设置星期
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 8   
+
+ 427   2          {
+ 428   3            if(key_can == 2)  //加
+ 429   3              set_ds1302time(1,&week,0x8);    
+ 430   3            if(key_can == 3)  //减    
+ 431   3              set_ds1302time(0,&week,0x8);  
+ 432   3          }
+ 433   2          if(menu_1 == 8)     //设置闹钟时
+ 434   2          {
+ 435   3            if(key_can == 2)  //加
+ 436   3              set_ds1302time(1,&shi1,0x24);   
+ 437   3            if(key_can == 3)  //减    
+ 438   3              set_ds1302time(0,&shi1,0x24); 
+ 439   3            clock1_save();
+ 440   3          }
+ 441   2          if(menu_1 == 9)     //设置闹钟分
+ 442   2          {
+ 443   3            if(key_can == 2)  //加
+ 444   3              set_ds1302time(1,&fen1,0x60);   
+ 445   3            if(key_can == 3)  //减    
+ 446   3              set_ds1302time(0,&fen1,0x60);
+ 447   3            clock1_save();  
+ 448   3          }
+ 449   2          if(menu_1 == 10)      //设置闹钟分
+ 450   2          {
+ 451   3            if((key_can == 2) || (key_can == 3))  //加
+ 452   3              open1 ++;
+ 453   3            if(open1 >= 2)
+ 454   3              open1 = 0;
+ 455   3            if(open1 == 1)
+ 456   3              write_string(4,2,"开");
+ 457   3            else 
+ 458   3              write_string(4,2,"关"); 
+ 459   3            clock1_save();  
+ 460   3          }
+ 461   2          write_shu16(1,1,nian);     //显示年
+ 462   2          write_shu16(1,3,yue);    //显示月
+ 463   2          write_shu16(1,5,ri);     //显示日
+ 464   2          write_shu16(2,1,shi);    //显示时
+ 465   2          write_shu16(2,3,fen);    //显示分
+ 466   2          write_shu16(2,5,miao);     //显示秒
+ 467   2          write_shu16(3,5,week);     //显示星期         
+ 468   2          write_shu16(4,4,shi1);     //显示时钟
+ 469   2          write_shu16(4,6,fen1);     //显示分钟
+ 470   2          switch(menu_1)     // 光标显示
+ 471   2          {
+ 472   3            case 1:  write_guanbiao(1,1,1);  break;
+ 473   3            case 2:  write_guanbiao(1,3,1);  break;
+ 474   3            case 3:  write_guanbiao(1,5,1);  break;
+ 475   3            case 4:  write_guanbiao(2,1,1);  break;
+ 476   3            case 5:  write_guanbiao(2,3,1);  break;
+ 477   3            case 6:  write_guanbiao(2,5,1);  break;
+ 478   3            case 7:  write_guanbiao(3,5,1);  break;
+ 479   3            case 8:  write_guanbiao(4,4,1);  break;
+ 480   3            case 9:  write_guanbiao(4,6,1);  break;
+ 481   3            case 10: write_guanbiao(4,2,1);  break;
+ 482   3          }
+ 483   2          write_time();    //把时间写进去
+ 484   2        }     
+ 485   1      }
+ 486          
+ 487          /*************闹钟报警函数***************/
+ 488          void menu_dis()
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 9   
+
+ 489          {
+ 490   1        if(menu_1 == 0)
+ 491   1        if(open1 == 1)  //如果闹钟打开
+ 492   1        {
+ 493   2          if((fen == fen1) && (shi == shi1) && (miao == 0)) 
+ 494   2          {   
+ 495   3            flag_clock_en = 1;  //有报警 打开蜂鸣器响的标志位       
+ 496   3          }   
+ 497   2          if(flag_clock_en == 1)  //闹钟以被打开
+ 498   2          { 
+ 499   3            beep = ~beep;    //蜂鸣器叫3秒
+ 500   3          }
+ 501   2        } 
+ 502   1      }
+ 503          
+ 504          
+ 505          /************主函数**************/
+ 506          void main()
+ 507          {
+ 508   1        beep = 0;                   //开机叫一声   
+ 509   1        delay_1ms(150);
+ 510   1        P0 = P1 = P2 = P3 = 0xff;   //单片机IO口初始化为1 
+ 511   1        init_ds1302();     //ds1302初始化
+ 512   1        read_clock();
+ 513   1        init_12864();    //lcd12864初始化
+ 514   1        init_12864_dis();  //lcd12864初始化显示
+ 515   1        time0_init();    //初始化定时器
+ 516   1        temperature = read_temp();  //先读出温度的值
+ 517   1        delay_1ms(650);
+ 518   1        temperature = read_temp();  //先读出温度的值
+ 519   1        while(1)
+ 520   1        {
+ 521   2      //    beep = 0;
+ 522   2          key();  
+ 523   2          if(key_can < 10)
+ 524   2          {
+ 525   3            if(flag_clock_en == 0)  //只有闹钟关了的时候才能进入设置
+ 526   3              key_with(); 
+ 527   3            else 
+ 528   3            {
+ 529   4              beep = 1;
+ 530   4              flag_clock_en = 0;   //按下任意键可关闭闹钟
+ 531   4            }
+ 532   3          }
+ 533   2          if(flag_200ms == 1)
+ 534   2          {
+ 535   3            flag_200ms = 0;
+ 536   3            ds1302_dis();    //时钟显示函数
+ 537   3            temperature = read_temp();  //先读出温度的值
+ 538   3          }
+ 539   2          if(flag_100ms == 1)
+ 540   2          {
+ 541   3            menu_dis();    //闹钟报警函数
+ 542   3            flag_100ms = 0;
+ 543   3          }
+ 544   2          delay_1ms(1);   
+ 545   2        }
+ 546   1      }
+ 547          
+ 548          /*********************定时器0中断服务程序************************/
+ 549          void time0_int() interrupt 1  
+ 550          {              
+C51 COMPILER V9.56.0.0   DS1302____12864________                                           04/04/2022 20:42:33 PAGE 10  
+
+ 551   1        static uchar value; //定时10ms中断一次
+ 552   1        TH0 = 0x3c;
+ 553   1        TL0 = 0xb0;         //50ms
+ 554   1        value ++;
+ 555   1        if(value % 2 == 0)
+ 556   1        {
+ 557   2          flag_100ms = 1;   
+ 558   2        }
+ 559   1        if(value % 20 == 0)
+ 560   1        {
+ 561   2          flag_200ms = 1;
+ 562   2        }
+ 563   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3307    ----
+   CONSTANT SIZE    =    838    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     25      21
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      3       5
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

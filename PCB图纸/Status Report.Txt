@@ -1,0 +1,11 @@
+Output: Simple BOM
+Type  : SimpleBOM
+From  : Variant [[No Variations]] of Project [Free Documents]
+   Generated File[DXP格式 单片机万年历LCD12864显示.BOM]
+   Generated File[DXP格式 单片机万年历LCD12864显示.CSV]
+
+
+Files Generated   : 2
+Documents Printed : 0
+
+Finished Output Generation At 13:29:58 On 2022/6/7

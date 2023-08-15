@@ -1,0 +1,9 @@
+".\Objects\main.obj",
+".\Objects\UART.obj",
+".\Objects\wifi_control.obj",
+".\Objects\delay.obj",
+".\Objects\key.obj",
+".\Objects\12864.obj",
+".\Objects\ds18b20.obj" 
+TO ".\Objects\project" 
+PRINT(".\Listings\project.m51") RAMSIZE(256) 

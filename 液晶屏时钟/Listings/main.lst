@@ -1,0 +1,197 @@
+C51 COMPILER V9.56.0.0   MAIN                                                              04/04/2022 20:06:34 PAGE 1   
+
+
+C51 COMPILER V9.56.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: D:\keil\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main.ls
+                    -t) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include <intrins.h>
+   3          #include <LCD12864.h>
+   4          
+   5          //数字字模
+   6          uint8 code ch[]=
+   7          {
+   8          0x00,0xE0,0x10,0x08,0x08,0x10,0xE0,0x00,0x00,0x0F,0x10,0x20,0x20,0x10,0x0F,0x00,/*"0",0*/
+   9          
+  10          0x00,0x00,0x10,0x10,0xF8,0x00,0x00,0x00,0x00,0x00,0x20,0x20,0x3F,0x20,0x20,0x00,/*"1",1*/
+  11          
+  12          0x00,0x70,0x08,0x08,0x08,0x08,0xF0,0x00,0x00,0x30,0x28,0x24,0x22,0x21,0x30,0x00,/*"2",2*/
+  13          
+  14          0x00,0x30,0x08,0x08,0x08,0x88,0x70,0x00,0x00,0x18,0x20,0x21,0x21,0x22,0x1C,0x00,/*"3",3*/
+  15          
+  16          0x00,0x00,0x80,0x40,0x30,0xF8,0x00,0x00,0x00,0x06,0x05,0x24,0x24,0x3F,0x24,0x24,/*"4",4*/
+  17          
+  18          0x00,0xF8,0x88,0x88,0x88,0x08,0x08,0x00,0x00,0x19,0x20,0x20,0x20,0x11,0x0E,0x00,/*"5",5*/
+  19          
+  20          0x00,0xE0,0x10,0x88,0x88,0x90,0x00,0x00,0x00,0x0F,0x11,0x20,0x20,0x20,0x1F,0x00,/*"6",6*/
+  21          
+  22          0x00,0x18,0x08,0x08,0x88,0x68,0x18,0x00,0x00,0x00,0x00,0x3E,0x01,0x00,0x00,0x00,/*"7",7*/
+  23          
+  24          0x00,0x70,0x88,0x08,0x08,0x88,0x70,0x00,0x00,0x1C,0x22,0x21,0x21,0x22,0x1C,0x00,/*"8",8*/
+  25          
+  26          0x00,0xF0,0x08,0x08,0x08,0x10,0xE0,0x00,0x00,0x01,0x12,0x22,0x22,0x11,0x0F,0x00/*"9",9*/
+  27          
+  28          };
+  29          //冒号
+  30          uint8 code ch1[]=
+  31          {
+  32          0x00,0x00,0x00,0xC0,0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x30,0x30,0x00,0x00,0x00,/*":",0*/
+  33          };
+  34          //空
+  35          uint8 code clear[]=
+  36          {
+  37          0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,/*":",0*/
+  38          };
+  39          
+  40          //图像
+  41          uint8 code image1[]=
+  42          {0x00,0x00,0x80,0xC0,0xE0,0xE0,0xE0,0xE0,0xE6,0xEE,0xFE,0xFC,0xF8,0xE0,0xE0,0xE0,
+  43          0xE0,0xE0,0xF8,0xFC,0xFE,0xEE,0xE6,0xE0,0xE0,0xE0,0xE0,0xC0,0x80,0x00,0x00,0x00,
+  44          0x00,0xFF,0xFF,0xFF,0xFF,0x01,0xC1,0xC1,0xE1,0xE1,0xE1,0xE1,0xE1,0x01,0x01,0x01,
+  45          0x01,0x01,0xE1,0xE1,0xE1,0xE1,0xE1,0xC1,0xC1,0x01,0xFF,0xFF,0xFF,0xFE,0x00,0x00,
+  46          0x00,0xFF,0xFF,0xFF,0xFF,0x00,0x01,0x01,0x01,0x01,0x00,0x10,0x70,0x60,0x70,0x38,
+  47          0x60,0x60,0x30,0x00,0x00,0x01,0x01,0x01,0x01,0x00,0xFF,0xFF,0xFF,0xFF,0x00,0x00,
+  48          0x00,0x03,0x0F,0x1F,0x1F,0x3E,0x3E,0x7C,0x7C,0x7C,0x3C,0x3C,0x3C,0x3C,0x3C,0x3C,
+  49          0x3C,0x3C,0x3C,0x3C,0x3C,0x7C,0x7C,0x7C,0x3C,0x3E,0x1F,0x1F,0x0F,0x03,0x00,0x00};
+  50          
+  51          uint16 THHL=65536-50000;//每隔50ms溢出
+  52          uint8 hour=0,min=0,sec=0;
+  53          uint8 show = 1;
+  54          uint8 d = 20;
+C51 COMPILER V9.56.0.0   MAIN                                                              04/04/2022 20:06:34 PAGE 2   
+
+  55          sbit key = P1^0;
+  56          sbit chose = P1^1;
+  57          sbit up = P1^2;
+  58          
+  59          void keyscan()   
+  60          {       
+  61   1        uint8 i=0;
+  62   1        uint16 delay=30000;
+  63   1        if(!key) //使用P1.0作为调整按钮   
+  64   1        {   
+  65   2          while(!key);  //等待按键松开 
+  66   2          TR0=0;          //关闭计时中断
+  67   2          while(key)      //再次按下P1.0，退出调节
+  68   2          {
+  69   3            if(!chose)
+  70   3            {
+  71   4              while(!chose);
+  72   4              i++;if(i>2){i=0;}
+  73   4            }
+  74   3            switch(i)
+  75   3            {
+  76   4              case 0: if(!up)
+  77   4                      {
+  78   5                        while(!up);
+  79   5                        sec+=1;
+  80   5                        if(sec>59)sec=0;
+  81   5                      }
+  82   4                      show_ch(2,4,4*8,clear);
+  83   4                      show_ch(2,4,5*8,clear);
+  84   4                      while(delay--);delay=30000;
+  85   4                      show_ch(2,4,4*8,ch+16*(sec/10));
+  86   4                      show_ch(2,4,5*8,ch+16*(sec%10));
+  87   4                      while(delay--);delay=30000;break;
+  88   4              case 1: if(!up)
+  89   4                      {
+  90   5                        while(!up);
+  91   5                        min+=1;
+  92   5                        if(min>59)min=0;
+  93   5                      }
+  94   4                      show_ch(2,4,1*8,clear);
+  95   4                      show_ch(2,4,2*8,clear);
+  96   4                      while(delay--);delay=30000;
+  97   4                      show_ch(2,4,1*8,ch+16*(min/10));
+  98   4                      show_ch(2,4,2*8,ch+16*(min%10));
+  99   4                      while(delay--);delay=30000;break;       
+ 100   4              case 2: if(!up)
+ 101   4                      {
+ 102   5                        while(!up);
+ 103   5                        hour+=1;
+ 104   5                        if(hour>23)hour=0;
+ 105   5                      }
+ 106   4                      show_ch(1,4,6*8,clear);
+ 107   4                      show_ch(1,4,7*8,clear);
+ 108   4                      while(delay--);delay=30000;
+ 109   4                      show_ch(1,4,6*8,ch+16*(hour/10));
+ 110   4                      show_ch(1,4,7*8,ch+16*(hour%10));
+ 111   4                      while(delay--);delay=30000;break; 
+ 112   4            }
+ 113   3            
+ 114   3          }
+ 115   2          while(!key);  //等待按键松开 
+ 116   2          TR0=1;          //恢复定时器中断
+C51 COMPILER V9.56.0.0   MAIN                                                              04/04/2022 20:06:34 PAGE 3   
+
+ 117   2        }   
+ 118   1      }
+ 119          
+ 120          
+ 121          
+ 122          void main()
+ 123          {
+ 124   1        InitLCD();
+ 125   1        ClearScreen(0);
+ 126   1        Set_line(0);
+ 127   1        show_im(1,2,0*16,image1);
+ 128   1        show_ch(2,4,0*8,ch1);
+ 129   1        show_ch(2,4,3*8,ch1);
+ 130   1        
+ 131   1        TMOD &=0X0F;
+ 132   1        TMOD |=0x01;
+ 133   1        TH0 = THHL /256;//高四位初值
+ 134   1        TL0 = THHL %256;//低四位初值
+ 135   1        EA = 1;      //开总中断
+ 136   1        ET0 = 1;     //T1开时定时器溢出
+ 137   1        TR0 = 1;     //开启定时器
+ 138   1      
+ 139   1        while(1)
+ 140   1        {
+ 141   2          if(show){
+ 142   3            show_ch(1,4,6*8,ch+16*(hour/10));
+ 143   3            show_ch(1,4,7*8,ch+16*(hour%10));
+ 144   3            show_ch(2,4,1*8,ch+16*(min/10));
+ 145   3            show_ch(2,4,2*8,ch+16*(min%10));
+ 146   3            show_ch(2,4,4*8,ch+16*(sec/10));
+ 147   3            show_ch(2,4,5*8,ch+16*(sec%10));
+ 148   3            show = 0; //只更新一次数据，防止中断打断传输导致错误。
+ 149   3          }
+ 150   2          keyscan();
+ 151   2        }
+ 152   1      }
+ 153          
+ 154          void time_intt1(void) interrupt 1  
+ 155          { 
+ 156   1        TH0=THHL/256;TL0=THHL%256; 
+ 157   1        d--; 
+ 158   1        if(d==0)
+ 159   1        {
+ 160   2          sec+=1;    
+ 161   2          show=1;
+ 162   2          if(sec>59){sec=0;min+=1;}
+ 163   2          if(min>59){min=0;hour+=1;}
+ 164   2          if(hour>23){hour=0;}
+ 165   2          d=20;
+ 166   2        }
+ 167   1      }   
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    915    ----
+   CONSTANT SIZE    =    320    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      7       3
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+C51 COMPILER V9.56.0.0   MAIN                                                              04/04/2022 20:06:34 PAGE 4   
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,23 @@
+Bill of Material for 
+On 2022/6/7 at 13:29:58
+
+ Comment             Pattern     Quantity  Components
+------------------------------------------------------------------------------
+ 10K                 AXIAL0.3         1    R?                                                
+ 10K                 res400mil        1    R?                                                
+ 10uF                C_10             1    C?                           Polarized Capacitor (Radial) 
+ 12M                 XTAL             1    Y?                           Crystal Oscillator   
+ 20                  CAP5             2    C?, C?                       电容                   
+ 2K                  AXIAL0.3         1    R?                                                
+ 9012                s三极管直插           1    Q?                           PNP General Purpose Amplifier 
+ DS18B20             18B20            1    U?                                                
+ esp8266wifi模块                        1    *?                                                
+ LCD12864            SIP20            1    U?                                                
+ R                   可调电阻器            1    RV?                          可变电阻                 
+ STC89C52            DIP40 - 做板       1    U?                                                
+ SW-PB               key             17    S?, S?, S?, S?, S?, S?, S?   Switch               
+                                           S?, S?, S?, S?, S?, S?, S?
+                                           S?, S?, S?
+ 电源开关                sw_自锁 1          1    SW?                                               
+ 电源输入                DC2.1            1    P?                                                
+ 蜂鸣器                 Bett             1    B?                           Bell                 
